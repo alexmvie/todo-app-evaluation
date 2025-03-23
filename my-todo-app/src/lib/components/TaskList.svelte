@@ -177,12 +177,17 @@
                     onchange={() => toggleTask(task.id)}
                     class="w-5 h-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
                 />
-                <span class={task.done ? 'line-through text-gray-400' : 'text-gray-700'}>
-                    {task.text}
-                </span>
+                <div class="flex-grow">
+                    <span class={task.done ? 'line-through text-gray-400' : 'text-gray-700'}>
+                        {task.text}
+                    </span>
+                    <div class="text-xs text-gray-500 mt-1">
+                        Created {new Date(task.createdAt).toLocaleDateString()} at {new Date(task.createdAt).toLocaleTimeString()}
+                    </div>
+                </div>
                 <button
                     onclick={() => deleteTask(task.id)}
-                    class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600"
                 >
                     Delete
                 </button>
