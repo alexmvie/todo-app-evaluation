@@ -9,6 +9,7 @@
     let newCategory = $state('');
     let editingCategory = $state<{index: number, value: string} | null>(null);
     let showCategoryModal = $state(false);
+    let showAddInput = $state(false);
     
     // Calculate incomplete tasks per category
     const incompleteTasks = $derived(new Map(
@@ -91,27 +92,41 @@
             </div>
         </div>
     {/each}
-    <form
-        class="flex gap-2"
-        onsubmit={(e) => {
-            e.preventDefault();
-            handleAddCategory();
-        }}
-    >
-        <input
-            value={newCategory}
-            oninput={(e) => newCategory = e.currentTarget.value}
-            placeholder="New category..."
-            class="px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-        />
+    
+    {#if showAddInput}
+        <form
+            class="flex gap-2"
+            transition:fade
+            onsubmit={(e) => {
+                e.preventDefault();
+                handleAddCategory();
+                showAddInput = false;
+            }}
+        >
+            <input
+                value={newCategory}
+                oninput={(e) => newCategory = e.currentTarget.value}
+                placeholder="New category..."
+                class="px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                autofocus
+            />
+            <button
+                type="submit"
+                disabled={newCategory.trim() === ''}
+                class="w-10 h-10 rounded-full bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-all flex items-center justify-center"
+            >
+                +
+            </button>
+        </form>
+    {:else}
         <button
-            type="submit"
-            disabled={newCategory.trim() === ''}
-            class="w-10 h-10 rounded-full bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-all flex items-center justify-center"
+            onclick={() => showAddInput = true}
+            class="px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center text-gray-600 hover:text-gray-800"
+            transition:fade
         >
             +
         </button>
-    </form>
+    {/if}
 </div>
 
 <!-- Category edit modal -->

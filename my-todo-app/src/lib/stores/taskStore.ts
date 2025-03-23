@@ -37,6 +37,29 @@ export function updateTasksCategory(oldCategory: string, newCategory: string) {
     ));
 }
 
+export function reorderTasks(draggedTask: Task, targetCategory: string, dropIndex?: number) {
+    tasks.update(tasks => {
+        // Remove task from its current position
+        const updatedTasks = tasks.filter(t => t.id !== draggedTask.id);
+        
+        if (targetCategory !== draggedTask.category) {
+            // Moving to a different category
+            draggedTask.category = targetCategory;
+            return [...updatedTasks, draggedTask];
+        } else if (dropIndex !== undefined) {
+            // Reordering within the same category
+            const categoryTasks = updatedTasks.filter(t => t.category === targetCategory);
+            const otherTasks = updatedTasks.filter(t => t.category !== targetCategory);
+            
+            // Insert at the specified position
+            categoryTasks.splice(dropIndex, 0, draggedTask);
+            return [...otherTasks, ...categoryTasks];
+        }
+        
+        return tasks;
+    });
+}
+
 export const tasksByCategory = derived(tasks, $tasks => {
     const grouped = new Map<string, Task[]>();
     $tasks.forEach(task => {
