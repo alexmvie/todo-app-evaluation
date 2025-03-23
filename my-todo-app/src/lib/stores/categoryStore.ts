@@ -1,8 +1,8 @@
 import { writable } from 'svelte/store';
-import { updateTasksCategory } from './taskStore';
+import { updateTaskCategory } from './taskStore';
 
-export const categories = writable<string[]>(['personal', 'work', 'shopping', 'health']);
-export const selectedCategory = writable<string>('personal');
+export const categories = writable<string[]>(['Work', 'Personal', 'Shopping', 'Health']);
+export const selectedCategory = writable<string>('Work');
 
 export function addCategory(newCategory: string): { success: boolean; error?: string } {
     let error: string | undefined;
@@ -37,7 +37,7 @@ export function updateCategory(oldValue: string, newValue: string): { success: b
         );
         
         // Update tasks with the new category name
-        updateTasksCategory(oldValue, trimmedValue);
+        updateTaskCategory(oldValue, trimmedValue);
         
         // Update selected category if needed
         selectedCategory.update(selected => 
@@ -64,7 +64,7 @@ export function deleteCategory(categoryToDelete: string): { success: boolean; er
         const remainingCategories = cats.filter(cat => cat !== categoryToDelete);
         
         // Move tasks to the first category
-        updateTasksCategory(categoryToDelete, remainingCategories[0]);
+        updateTaskCategory(categoryToDelete, remainingCategories[0]);
         
         // Update selected category if needed
         selectedCategory.update(selected => 

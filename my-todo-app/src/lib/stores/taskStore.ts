@@ -1,73 +1,101 @@
-import { writable, derived } from 'svelte/store';
-import type { Task } from '$lib/types';
-import sampleData from '$lib/sample-tasks.json';
+import { writable, type Writable } from 'svelte/store';
+import sampleTasks from '../sample-tasks.json';
 
-export const tasks = writable<Task[]>(sampleData.tasks);
+// Simple UUID generator
+function generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
 
-export function addTask(text: string, category: string) {
+export interface Task {
+    id: string;
+    title: string;
+    completed: boolean;
+    category: string;
+    dueDate?: string;
+    createdAt: string;
+}
+
+const tasks: Writable<Task[]> = writable(sampleTasks.tasks);
+
+export function addTask(task: Omit<Task, 'id' | 'createdAt'>) {
     const newTask: Task = {
-        id: Date.now(),
-        text,
-        done: false,
-        category,
+        ...task,
+        id: generateUUID(),
         createdAt: new Date().toISOString()
     };
     tasks.update(tasks => [...tasks, newTask]);
 }
 
-export function deleteTask(id: number) {
+export function deleteTask(id: string) {
     tasks.update(tasks => tasks.filter(task => task.id !== id));
 }
 
-export function toggleTask(id: number) {
-    tasks.update(tasks => tasks.map(task =>
-        task.id === id ? { ...task, done: !task.done } : task
-    ));
+export function toggleTask(id: string) {
+    tasks.update(tasks => tasks.map(task => {
+        if (task.id === id) {
+            return { ...task, completed: !task.completed };
+        }
+        return task;
+    }));
 }
 
-export function updateTaskCategory(taskId: number, newCategory: string) {
-    tasks.update(tasks => tasks.map(task =>
-        task.id === taskId ? { ...task, category: newCategory } : task
-    ));
+export function updateTaskTitle(id: string, title: string) {
+    tasks.update(tasks => tasks.map(task => {
+        if (task.id === id) {
+            return { ...task, title };
+        }
+        return task;
+    }));
 }
 
-export function updateTasksCategory(oldCategory: string, newCategory: string) {
-    tasks.update(tasks => tasks.map(task =>
-        task.category === oldCategory ? { ...task, category: newCategory } : task
-    ));
+export function updateTaskCategory(oldCategory: string, newCategory: string) {
+    tasks.update(tasks => tasks.map(task => {
+        if (task.category === oldCategory) {
+            return { ...task, category: newCategory };
+        }
+        return task;
+    }));
 }
 
-export function reorderTasks(draggedTask: Task, targetCategory: string, dropIndex?: number) {
+export function updateTaskDueDate(id: string, dueDate: string | undefined) {
+    tasks.update(tasks => tasks.map(task => {
+        if (task.id === id) {
+            return { ...task, dueDate };
+        }
+        return task;
+    }));
+}
+
+export function reorderTasks(fromId: string, toId: string) {
     tasks.update(tasks => {
-        // Remove task from its current position
-        const updatedTasks = tasks.filter(t => t.id !== draggedTask.id);
+        const fromIndex = tasks.findIndex(task => task.id === fromId);
+        const toIndex = tasks.findIndex(task => task.id === toId);
         
-        if (targetCategory !== draggedTask.category) {
-            // Moving to a different category
-            draggedTask.category = targetCategory;
-            return [...updatedTasks, draggedTask];
-        } else if (dropIndex !== undefined) {
-            // Reordering within the same category
-            const categoryTasks = updatedTasks.filter(t => t.category === targetCategory);
-            const otherTasks = updatedTasks.filter(t => t.category !== targetCategory);
-            
-            // Insert at the specified position
-            categoryTasks.splice(dropIndex, 0, draggedTask);
-            return [...otherTasks, ...categoryTasks];
-        }
+        if (fromIndex === -1 || toIndex === -1) return tasks;
         
-        return tasks;
+        const newTasks = [...tasks];
+        const [movedTask] = newTasks.splice(fromIndex, 1);
+        newTasks.splice(toIndex, 0, movedTask);
+        
+        return newTasks;
     });
 }
 
-export const tasksByCategory = derived(tasks, $tasks => {
-    const grouped = new Map<string, Task[]>();
-    $tasks.forEach(task => {
-        const category = task.category;
-        if (!grouped.has(category)) {
-            grouped.set(category, []);
-        }
-        grouped.get(category)?.push(task);
-    });
-    return grouped;
-});
+// Derived state
+export const tasksByCategory = {
+    subscribe: tasks.subscribe((tasks) => {
+        const categories = ['Work', 'Personal', 'Shopping', 'Health'];
+        return new Map(
+            categories.map(category => [
+                category,
+                tasks.filter((task: Task) => task.category === category)
+            ])
+        );
+    })
+};
+
+export { tasks };

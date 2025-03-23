@@ -2,214 +2,311 @@
     import { fade, slide } from 'svelte/transition';
     import { flip } from 'svelte/animate';
     import { categories, selectedCategory, addCategory, updateCategory, deleteCategory } from '$lib/stores/categoryStore';
-    import { tasksByCategory } from '$lib/stores/taskStore';
+    import { tasks, type Task } from '$lib/stores/taskStore';
     import { showError } from '$lib/utils/notifications';
+    import { derived } from 'svelte/store';
     
-    // Local state
-    let newCategory = $state('');
-    let editingCategory = $state<{index: number, value: string} | null>(null);
-    let showCategoryModal = $state(false);
-    let showAddInput = $state(false);
+    interface EditingCategory {
+        index: number;
+        value: string;
+    }
+    
+    let newCategory = '';
+    let editingCategory: EditingCategory | null = null;
+    let showCategoryModal = false;
+    let showAddInput = false;
     
     // Calculate incomplete tasks per category
-    const incompleteTasks = $derived(new Map(
-        Array.from($tasksByCategory.entries()).map(([category, tasks]) => [
-            category,
-            tasks.filter(task => !task.done).length
-        ])
-    ));
+    const categoryMap = derived([categories, tasks], ([$categories, $tasks]) => {
+        const map = new Map<string, number>();
+        const categoryArray = Array.isArray($categories) ? $categories : [];
+        for (const category of categoryArray) {
+            map.set(
+                category,
+                $tasks.filter((t: Task) => t.category === category && !t.completed).length
+            );
+        }
+        return map;
+    });
     
     function handleAddCategory() {
-        if (newCategory.trim() === '') return;
-        const result = addCategory(newCategory);
-        if (!result.success && result.error) {
-            showError(result.error);
+        if (!newCategory.trim()) {
+            showError('Category name cannot be empty');
             return;
         }
+        
+        const categoryArray = Array.isArray($categories) ? $categories : [];
+        if (categoryArray.includes(newCategory.trim())) {
+            showError('Category already exists');
+            return;
+        }
+        
+        addCategory(newCategory.trim());
         newCategory = '';
+        showAddInput = false;
     }
-
-    function startEditingCategory(index: number) {
-        editingCategory = { index, value: $categories[index] };
-        showCategoryModal = true;
-    }
-
-    function saveEditingCategory() {
-        const editing = editingCategory;
-        if (!editing) return;
+    
+    function handleUpdateCategory(index: number) {
+        if (!editingCategory) return;
         
-        const oldValue = $categories[editing.index];
-        const result = updateCategory(oldValue, editing.value);
-        
-        if (!result.success && result.error) {
-            showError(result.error);
+        const newName = editingCategory.value.trim();
+        if (!newName) {
+            showError('Category name cannot be empty');
             return;
         }
         
-        closeCategoryModal();
-    }
-
-    function handleDeleteCategory(categoryToDelete: string) {
-        const result = deleteCategory(categoryToDelete);
-        if (!result.success && result.error) {
-            showError(result.error);
+        const categoryArray = Array.isArray($categories) ? $categories : [];
+        if (categoryArray.includes(newName)) {
+            showError('Category already exists');
             return;
         }
-        closeCategoryModal();
-    }
-
-    function closeCategoryModal() {
-        showCategoryModal = false;
+        
+        const oldCategory = categoryArray[index];
+        if (oldCategory) {
+            updateCategory(oldCategory, newName);
+        }
         editingCategory = null;
+    }
+    
+    function handleDeleteCategory(category: string) {
+        const taskArray = Array.isArray($tasks) ? $tasks : [];
+        if (taskArray.filter((t: Task) => t.category === category).length > 0) {
+            showCategoryModal = true;
+            return;
+        }
+        deleteCategory(category);
+    }
+
+    function setSelectedCategory(category: string) {
+        selectedCategory.set(category);
     }
 </script>
 
-<!-- Category list with modern design -->
-<div class="flex flex-wrap gap-3 mb-6" transition:slide>
-    {#each $categories as category, i (category)}
-        <div
-            class="group relative"
-            animate:flip={{duration: 300}}
-        >
-            <button
-                class="px-4 py-2 rounded-full {$selectedCategory === category ? 'bg-blue-500 text-white' : 'bg-gray-100 hover:bg-gray-200'} transition-all flex items-center gap-2"
-                onclick={() => $selectedCategory = category}
+<div class="categories">
+    <h2>Categories</h2>
+    <div class="category-list">
+        {#each Array.isArray($categories) ? $categories : [] as category, index (category)}
+            <div
+                class="category"
+                class:active={category === $selectedCategory}
+                animate:flip
             >
-                <span>{category}</span>
-                {#if (incompleteTasks.get(category) ?? 0) > 0}
-                    <span class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                        {incompleteTasks.get(category)}
-                    </span>
+                {#if editingCategory?.index === index}
+                    <input
+                        type="text"
+                        bind:value={editingCategory.value}
+                        on:blur={() => handleUpdateCategory(index)}
+                        on:keydown={e => e.key === 'Enter' && handleUpdateCategory(index)}
+                        transition:fade
+                    />
+                {:else}
+                    <button
+                        class="category-btn"
+                        on:click={() => setSelectedCategory(category)}
+                    >
+                        {category}
+                        {#if $categoryMap.get(category)}
+                            <span class="badge">{$categoryMap.get(category)}</span>
+                        {/if}
+                    </button>
+                    <div class="actions">
+                        <button
+                            class="edit-btn"
+                            on:click={() => editingCategory = { index, value: category }}
+                        >
+                            Edit
+                        </button>
+                        <button
+                            class="delete-btn"
+                            on:click={() => handleDeleteCategory(category)}
+                        >
+                            Delete
+                        </button>
+                    </div>
                 {/if}
-            </button>
-            <div class="absolute right-0 top-0 -mr-2 -mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                    onclick={() => startEditingCategory(i)}
-                    class="w-6 h-6 rounded-full bg-gray-800 text-white flex items-center justify-center text-sm hover:bg-gray-700"
-                >
-                    ✎
-                </button>
             </div>
-        </div>
-    {/each}
+        {/each}
+    </div>
     
     {#if showAddInput}
-        <form
-            class="flex gap-2"
-            transition:fade
-            onsubmit={(e) => {
-                e.preventDefault();
-                handleAddCategory();
-                showAddInput = false;
-            }}
-        >
+        <div class="add-category" transition:slide>
             <input
-                value={newCategory}
-                oninput={(e) => newCategory = e.currentTarget.value}
-                placeholder="New category..."
-                class="px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                autofocus
+                type="text"
+                bind:value={newCategory}
+                placeholder="New category name"
+                on:keydown={e => e.key === 'Enter' && handleAddCategory()}
             />
-            <button
-                type="submit"
-                disabled={newCategory.trim() === ''}
-                class="w-10 h-10 rounded-full bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-all flex items-center justify-center"
-            >
-                +
-            </button>
-        </form>
+            <div class="add-actions">
+                <button on:click={handleAddCategory}>Add</button>
+                <button on:click={() => showAddInput = false}>Cancel</button>
+            </div>
+        </div>
     {:else}
         <button
-            onclick={() => showAddInput = true}
-            class="px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center text-gray-600 hover:text-gray-800"
-            transition:fade
+            class="add-btn"
+            on:click={() => showAddInput = true}
         >
-            +
+            Add Category
         </button>
     {/if}
 </div>
 
-<!-- Category edit modal -->
 {#if showCategoryModal}
     <div
-        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        class="modal-overlay"
         transition:fade
         role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-        tabindex="-1"
-        onkeydown={(e) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                closeCategoryModal();
-            }
-        }}
     >
-        <button
-            class="absolute inset-0 w-full h-full cursor-default"
-            aria-label="Close modal"
-            onclick={closeCategoryModal}
-        ></button>
-        <div
-            class="bg-white rounded-lg p-6 shadow-xl max-w-md w-full mx-4 relative"
-            transition:slide
-            role="document"
-        >
-            <div class="flex justify-between items-center mb-4">
-                <h2 id="modal-title" class="text-xl font-semibold">Edit Category</h2>
-                <button
-                    onclick={closeCategoryModal}
-                    class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-                    aria-label="Close modal"
-                >
-                    ×
-                </button>
-            </div>
-            <form
-                class="space-y-4"
-                onsubmit={(e) => {
-                    e.preventDefault();
-                    saveEditingCategory();
-                }}
-            >
-                <input
-                    value={editingCategory?.value ?? ''}
-                    oninput={(e) => {
-                        if (editingCategory) {
-                            editingCategory = {
-                                index: editingCategory.index,
-                                value: e.currentTarget.value
-                            };
-                        }
-                    }}
-                    class="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Category name"
-                />
-                <div class="flex justify-between">
-                    <button
-                        type="button"
-                        onclick={() => handleDeleteCategory($categories[editingCategory?.index ?? 0])}
-                        class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                        Delete
-                    </button>
-                    <div class="flex gap-2">
-                        <button
-                            type="button"
-                            onclick={closeCategoryModal}
-                            class="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                        >
-                            Save
-                        </button>
-                    </div>
-                </div>
-            </form>
+        <div class="modal">
+            <h3>Cannot Delete Category</h3>
+            <p>This category contains tasks. Please delete or move all tasks before deleting the category.</p>
+            <button on:click={() => showCategoryModal = false}>OK</button>
         </div>
     </div>
 {/if}
+
+<style>
+    .categories {
+        padding: 1rem;
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+        margin: 0 0 1rem 0;
+        font-size: 1.5rem;
+        color: #333;
+    }
+
+    .category-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .category {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .category-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem;
+        background: none;
+        border: none;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        text-align: left;
+        font-size: 1rem;
+    }
+
+    .category-btn:hover {
+        background: #f0f0f0;
+    }
+
+    .active .category-btn {
+        background: #e0e0e0;
+        font-weight: bold;
+    }
+
+    .badge {
+        background: #ff4444;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 1rem;
+        font-size: 0.75rem;
+    }
+
+    .actions {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .edit-btn,
+    .delete-btn {
+        padding: 0.25rem 0.5rem;
+        border: none;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+    }
+
+    .edit-btn {
+        background: #4CAF50;
+        color: white;
+    }
+
+    .delete-btn {
+        background: #ff4444;
+        color: white;
+    }
+
+    .add-category {
+        margin-top: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .add-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .add-btn {
+        margin-top: 1rem;
+        width: 100%;
+        padding: 0.5rem;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 0.25rem;
+        cursor: pointer;
+    }
+
+    input {
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 0.25rem;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        max-width: 24rem;
+    }
+
+    .modal h3 {
+        margin: 0 0 1rem 0;
+        color: #333;
+    }
+
+    .modal p {
+        margin: 0 0 1rem 0;
+        color: #666;
+    }
+
+    .modal button {
+        padding: 0.5rem 1rem;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 0.25rem;
+        cursor: pointer;
+    }
+</style>

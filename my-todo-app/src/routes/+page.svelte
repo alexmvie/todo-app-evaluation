@@ -1,12 +1,22 @@
 <script lang="ts">
-  import CategoryList from '$lib/components/CategoryList.svelte';
   import TaskList from '$lib/components/TaskList.svelte';
+  import CategoryList from '$lib/components/CategoryList.svelte';
+  import { selectedCategory } from '$lib/stores/categoryStore';
+  import Footer from '$lib/components/Footer.svelte';
 </script>
 
-<div class="container mx-auto px-4 py-8 max-w-2xl">
-  <CategoryList />
-  <TaskList />
-</div>
+<main class="container mx-auto px-4 py-8 max-w-4xl">
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+    <aside class="md:col-span-1">
+      <CategoryList />
+    </aside>
+    <div class="md:col-span-3">
+      <TaskList category={$selectedCategory} />
+    </div>
+  </div>
+</main>
+
+<Footer />
 
 <style>
   @keyframes slideIn {
