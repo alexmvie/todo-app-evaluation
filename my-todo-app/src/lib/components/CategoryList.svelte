@@ -5,11 +5,22 @@
     import { tasks, type Task } from '$lib/stores/taskStore';
     import { showError } from '$lib/utils/notifications';
     import { derived } from 'svelte/store';
+    import { dndzone } from 'svelte-dnd-action';
     
     interface EditingCategory {
         index: number;
         value: string;
     }
+    
+    interface Category {
+        name: string;
+        color: string;
+        index: number;
+    }
+    
+    categories.update((cats: Category[]) => cats.map((cat, i) => ({ ...cat, index: i })));
+
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D3', '#54C6EB', '#A4D8A4'];
     
     let newCategory = '';
     let editingCategory: EditingCategory | null = null;
@@ -19,29 +30,37 @@
     // Calculate incomplete tasks per category
     const categoryMap = derived([categories, tasks], ([$categories, $tasks]) => {
         const map = new Map<string, number>();
-        const categoryArray = Array.isArray($categories) ? $categories : [];
+        const categoryArray = $categories as Category[];
         for (const category of categoryArray) {
             map.set(
-                category,
-                $tasks.filter((t: Task) => t.category === category && !t.completed).length
+                category.name,
+                $tasks.filter((t: Task) => t.category === category.name && !t.completed).length
             );
         }
         return map;
     });
     
+    function handleDndConsider(e: CustomEvent<{ items: Category[] }>) {
+        categories.set(e.detail.items.map((item, index) => ({ ...item, index })));
+    }
+
+    function handleDndFinalize(e: CustomEvent<{ items: Category[] }>) {
+        categories.set(e.detail.items.map((item, index) => ({ ...item, index })));
+    }
+
     function handleAddCategory() {
         if (!newCategory.trim()) {
             showError('Category name cannot be empty');
             return;
         }
         
-        const categoryArray = Array.isArray($categories) ? $categories : [];
-        if (categoryArray.includes(newCategory.trim())) {
+        const categoryArray = $categories as Category[];
+        if (categoryArray.some(cat => cat.name === newCategory.trim())) {
             showError('Category already exists');
             return;
         }
         
-        addCategory(newCategory.trim());
+        addCategory({ name: newCategory.trim(), color: '#FF6B6B', index: categoryArray.length });
         newCategory = '';
         showAddInput = false;
     }
@@ -55,30 +74,30 @@
             return;
         }
         
-        const categoryArray = Array.isArray($categories) ? $categories : [];
-        if (categoryArray.includes(newName)) {
+        const categoryArray = $categories as Category[];
+        if (categoryArray.some(cat => cat.name === newName)) {
             showError('Category already exists');
             return;
         }
         
         const oldCategory = categoryArray[index];
         if (oldCategory) {
-            updateCategory(oldCategory, newName);
+            updateCategory(oldCategory.name, newName);
         }
         editingCategory = null;
     }
     
-    function handleDeleteCategory(category: string) {
-        const taskArray = Array.isArray($tasks) ? $tasks : [];
-        if (taskArray.filter((t: Task) => t.category === category).length > 0) {
+    function handleDeleteCategory(category: Category) {
+        const taskArray = $tasks as Task[];
+        if (taskArray.filter((t: Task) => t.category === category.name).length > 0) {
             showCategoryModal = true;
             return;
         }
-        deleteCategory(category);
+        deleteCategory(category.name);
     }
 
-    function setSelectedCategory(category: string) {
-        selectedCategory.set(category);
+    function setSelectedCategory(category: Category) {
+        selectedCategory.set(category.name);
     }
 </script>
 
@@ -116,12 +135,15 @@
         </div>
     {/if}
     
-    <div class="category-list" role="tablist">
-        {#each Array.isArray($categories) ? $categories : [] as category, index (category)}
-            <div
-                class="category-wrapper"
-                animate:flip={{duration: 300}}
-            >
+    <div 
+        class="category-list" 
+        role="tablist"
+        use:dndzone={{items: $categories as Category[], flipDurationMs: 300}}
+        on:consider={handleDndConsider}
+        on:finalize={handleDndFinalize}
+    >
+        {#each $categories as category, index (category.name)}
+            <div class="category-wrapper" animate:flip={{duration: 300}}>
                 {#if editingCategory?.index === index}
                     <div class="edit-container" transition:fade|local>
                         <input
@@ -142,24 +164,24 @@
                 {:else}
                     <div
                         class="category-item"
-                        class:active={category === $selectedCategory}
+                        class:active={category.name === $selectedCategory}
                         on:click={() => setSelectedCategory(category)}
                         role="tab"
-                        aria-selected={category === $selectedCategory}
-                        aria-label={`Category ${category} with ${$categoryMap.get(category) || 0} incomplete tasks`}
+                        aria-selected={category.name === $selectedCategory}
+                        aria-label={`Category ${category.name} with ${$categoryMap.get(category.name) || 0} incomplete tasks`}
                         tabindex="0"
                         on:keydown={e => e.key === 'Enter' && setSelectedCategory(category)}
                     >
                         <div class="category-main">
-                            <span class="category-name">{category}</span>
-                            {#if $categoryMap.get(category)}
-                                <span class="badge" role="status">{$categoryMap.get(category)}</span>
+                            <span class="category-name">{category.name}</span>
+                            {#if $categoryMap.get(category.name)}
+                                <span class="badge" role="status">{$categoryMap.get(category.name)}</span>
                             {/if}
                         </div>
                         <div class="category-actions">
                             <button
                                 class="icon-btn edit"
-                                on:click|stopPropagation={() => editingCategory = { index, value: category }}
+                                on:click|stopPropagation={() => editingCategory = { index, value: category.name }}
                                 aria-label="Edit category name"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
@@ -204,12 +226,11 @@
         gap: 1rem;
         position: relative;
         z-index: 2;
-        width: 100%;
-        min-width: 250px;
-        padding: 1.5rem;
+        width: 300px;
         background: white;
-        border-radius: 0.75rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
     }
 
     .header {
@@ -257,7 +278,17 @@
     }
 
     .category-wrapper {
-        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        border-radius: 8px;
+        cursor: grab;
+        transition: all 0.2s ease;
+    }
+
+    .category-wrapper:hover {
+        background: #f5f5f5;
     }
 
     .category-item {
@@ -291,16 +322,8 @@
     }
 
     .category-name {
-        display: block;
-        font-size: 1rem;
+        flex: 1;
         font-weight: 500;
-        color: #1a1a1a;
-        margin: 0;
-        padding: 0;
-    }
-
-    .category-item.active .category-name {
-        color: white;
     }
 
     .category-actions {

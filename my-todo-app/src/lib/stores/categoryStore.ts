@@ -1,47 +1,60 @@
 import { writable } from 'svelte/store';
 import { updateTaskCategory } from './taskStore';
 
-export const categories = writable<string[]>(['Work', 'Personal', 'Shopping', 'Health']);
+export interface Category {
+    name: string;
+    color: string;
+    index: number;
+}
+
+const initialCategories: Category[] = [
+    { name: 'Work', color: '#FF6B6B', index: 0 },
+    { name: 'Personal', color: '#4ECDC4', index: 1 },
+    { name: 'Shopping', color: '#45B7D3', index: 2 },
+    { name: 'Health', color: '#A4D8A4', index: 3 }
+];
+
+export const categories = writable<Category[]>(initialCategories);
 export const selectedCategory = writable<string>('Work');
 
-export function addCategory(newCategory: string): { success: boolean; error?: string } {
+export function addCategory(category: Category): { success: boolean; error?: string } {
     let error: string | undefined;
     let success = false;
 
     categories.update(cats => {
-        const categoryValue = newCategory.trim().toLowerCase();
-        if (cats.includes(categoryValue)) {
+        const categoryName = category.name.trim().toLowerCase();
+        if (cats.some(cat => cat.name.toLowerCase() === categoryName)) {
             error = 'This category already exists';
             return cats;
         }
         success = true;
-        return [...cats, categoryValue];
+        return [...cats, { ...category, name: categoryName }];
     });
 
     return { success, error };
 }
 
-export function updateCategory(oldValue: string, newValue: string): { success: boolean; error?: string } {
+export function updateCategory(oldName: string, newName: string): { success: boolean; error?: string } {
     let error: string | undefined;
     let success = false;
 
     categories.update(cats => {
-        const trimmedValue = newValue.trim().toLowerCase();
-        if (cats.includes(trimmedValue) && trimmedValue !== oldValue) {
+        const trimmedName = newName.trim().toLowerCase();
+        if (cats.some(cat => cat.name.toLowerCase() === trimmedName && cat.name !== oldName)) {
             error = 'This category already exists';
             return cats;
         }
         success = true;
         const updatedCategories = cats.map(cat => 
-            cat === oldValue ? trimmedValue : cat
+            cat.name === oldName ? { ...cat, name: trimmedName } : cat
         );
         
         // Update tasks with the new category name
-        updateTaskCategory(oldValue, trimmedValue);
+        updateTaskCategory(oldName, trimmedName);
         
         // Update selected category if needed
         selectedCategory.update(selected => 
-            selected === oldValue ? trimmedValue : selected
+            selected === oldName ? trimmedName : selected
         );
 
         return updatedCategories;
@@ -61,14 +74,14 @@ export function deleteCategory(categoryToDelete: string): { success: boolean; er
         }
 
         success = true;
-        const remainingCategories = cats.filter(cat => cat !== categoryToDelete);
+        const remainingCategories = cats.filter(cat => cat.name !== categoryToDelete);
         
         // Move tasks to the first category
-        updateTaskCategory(categoryToDelete, remainingCategories[0]);
+        updateTaskCategory(categoryToDelete, remainingCategories[0].name);
         
         // Update selected category if needed
         selectedCategory.update(selected => 
-            selected === categoryToDelete ? remainingCategories[0] : selected
+            selected === categoryToDelete ? remainingCategories[0].name : selected
         );
 
         return remainingCategories;
