@@ -77,6 +77,8 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
+        position: relative;
+        z-index: 1;
     }
 
     h2 {

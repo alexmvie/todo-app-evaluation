@@ -202,6 +202,8 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
+        position: relative;
+        z-index: 2;
         width: 100%;
         min-width: 250px;
         padding: 1.5rem;
