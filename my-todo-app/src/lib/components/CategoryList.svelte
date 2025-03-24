@@ -13,6 +13,7 @@
     }
     
     interface Category {
+        id: string;
         name: string;
         color: string;
         index: number;
@@ -60,7 +61,9 @@
             return;
         }
         
-        addCategory({ name: newCategory.trim(), color: '#FF6B6B', index: categoryArray.length });
+        // Generate a temporary ID that will be replaced by the store function
+        const tempId = `category-${Date.now()}`;
+        addCategory({ id: tempId, name: newCategory.trim(), color: '#FF6B6B', index: categoryArray.length });
         newCategory = '';
         showAddInput = false;
     }
@@ -75,14 +78,14 @@
         }
         
         const categoryArray = $categories as Category[];
-        if (categoryArray.some(cat => cat.name === newName)) {
+        if (categoryArray.some(cat => cat.name === newName && categoryArray.indexOf(cat) !== index)) {
             showError('Category already exists');
             return;
         }
         
         const oldCategory = categoryArray[index];
         if (oldCategory) {
-            updateCategory(oldCategory.name, newName);
+            updateCategory(oldCategory.id, { ...oldCategory, name: newName });
         }
         editingCategory = null;
     }
@@ -93,7 +96,7 @@
             showCategoryModal = true;
             return;
         }
-        deleteCategory(category.name);
+        deleteCategory(category.id);
     }
 
     function setSelectedCategory(category: Category) {
@@ -142,20 +145,20 @@
         on:consider={handleDndConsider}
         on:finalize={handleDndFinalize}
     >
-        {#each $categories as category, index (category.name)}
+        {#each $categories as category (category.id)}
             <div class="category-wrapper" animate:flip={{duration: 300}}>
-                {#if editingCategory?.index === index}
+                {#if editingCategory?.index === $categories.indexOf(category)}
                     <div class="edit-container" transition:fade|local>
                         <input
                             type="text"
                             bind:value={editingCategory.value}
-                            on:blur={() => handleUpdateCategory(index)}
-                            on:keydown={e => e.key === 'Enter' && handleUpdateCategory(index)}
+                            on:blur={() => handleUpdateCategory($categories.indexOf(category))}
+                            on:keydown={e => e.key === 'Enter' && handleUpdateCategory($categories.indexOf(category))}
                             aria-label="Edit category name"
                         />
                         <button 
                             class="save-btn" 
-                            on:click={() => handleUpdateCategory(index)}
+                            on:click={() => handleUpdateCategory($categories.indexOf(category))}
                             aria-label="Save category name"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
@@ -181,7 +184,7 @@
                         <div class="category-actions">
                             <button
                                 class="icon-btn edit"
-                                on:click|stopPropagation={() => editingCategory = { index, value: category.name }}
+                                on:click|stopPropagation={() => editingCategory = { index: $categories.indexOf(category), value: category.name }}
                                 aria-label="Edit category name"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
@@ -199,7 +202,8 @@
             </div>
         {:else}
             <div class="empty-state">
-                <p>No categories yet. Add your first category to get started.</p>
+                <p>No categories found</p>
+                <button class="primary-btn" on:click={() => showAddInput = true}>Add your first category</button>
             </div>
         {/each}
     </div>

@@ -2,14 +2,30 @@
     import { fade } from 'svelte/transition';
     import { tasks, type Task, updateTaskDueDate, deleteTask, toggleTask } from '$lib/stores/taskStore';
     import { format } from 'date-fns';
-    import { derived } from 'svelte/store';
+    import { derived, writable } from 'svelte/store';
 
     export let category: string;
+    
+    // Create a writable store for the category prop
+    const categoryStore = writable<string>(category);
+    
+    // Update the store when the prop changes
+    $: categoryStore.set(category);
     
     function formatDate(date: string | undefined): string {
         if (!date) return '';
         try {
             return format(new Date(date), 'MMM d, yyyy h:mm a');
+        } catch {
+            return '';
+        }
+    }
+
+    function formatDateForInput(date: string | undefined): string {
+        if (!date) return '';
+        try {
+            const dateObj = new Date(date);
+            return dateObj.toISOString().slice(0, 16);
         } catch {
             return '';
         }
@@ -21,8 +37,11 @@
         updateTaskDueDate(task.id, newDate);
     }
 
-    const categoryTasks = derived(tasks, ($tasks) => {
-        return Array.isArray($tasks) ? $tasks.filter((task: Task) => task.category === category) : [];
+    // Derive tasks based on both the tasks store and the category store
+    const categoryTasks = derived([tasks, categoryStore], ([$tasks, $categoryStore]) => {
+        return Array.isArray($tasks) 
+            ? $tasks.filter((task: Task) => task.category === $categoryStore) 
+            : [];
     });
 </script>
 
@@ -39,7 +58,7 @@
                     <input
                         type="checkbox"
                         checked={task.completed}
-                        onclick={() => toggleTask(task.id)}
+                        on:click={() => toggleTask(task.id)}
                     />
                     <span class="task-title">{task.title}</span>
                 </div>
@@ -47,8 +66,8 @@
                     <div class="due-date-container">
                         <input
                             type="datetime-local"
-                            value={task.dueDate ? task.dueDate.slice(0, 16) : ''}
-                            onchange={(e) => handleDueDateChange(task, e)}
+                            value={formatDateForInput(task.dueDate)}
+                            on:change={(e) => handleDueDateChange(task, e)}
                             class="due-date-input"
                         />
                         {#if task.dueDate}
@@ -57,7 +76,7 @@
                     </div>
                     <button
                         class="delete-btn"
-                        onclick={() => deleteTask(task.id)}
+                        on:click={() => deleteTask(task.id)}
                         aria-label="Delete task"
                     >
                         ×
