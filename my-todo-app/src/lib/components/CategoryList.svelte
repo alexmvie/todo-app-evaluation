@@ -1,3 +1,4 @@
+<!-- Import necessary Svelte transitions and animations -->
 <script lang="ts">
     import { fade, slide } from 'svelte/transition';
     import { flip } from 'svelte/animate';
@@ -7,11 +8,13 @@
     import { derived } from 'svelte/store';
     import { dndzone } from 'svelte-dnd-action';
     
+    // Interface for tracking which category is being edited
     interface EditingCategory {
         index: number;
         value: string;
     }
     
+    // Define the Category interface to match our store
     interface Category {
         id: string;
         name: string;
@@ -19,16 +22,48 @@
         index: number;
     }
     
-    categories.update((cats: Category[]) => cats.map((cat, i) => ({ ...cat, index: i })));
+    // Define a function to update category indices
+    const updateCategoryIndices = (categories: Category[]) => {
+        // Create a new array to store updated categories
+        const updatedCategories = [];
+        
+        // Loop through each category
+        for (let i = 0; i < categories.length; i++) {
+            // Get the current category
+            const category = categories[i];
+            
+            // Create a new category object with the index
+            const updatedCategory = {
+                ...category,  // Keep all existing properties
+                index: i      // Add the current index
+            };
+            
+            // Add the updated category to our new array
+            updatedCategories.push(updatedCategory);
+        }
+        
+        // Return the new array of updated categories
+        return updatedCategories;
+    };
 
+    // Update the categories store with the new indices
+    categories.update(updateCategoryIndices);
+
+    // short way for the codeblock updateCategoryIndices:
+    // categories.update((cats: Category[]) => cats.map((cat, i) => ({ ...cat, index: i })));
+    // ---------------------------------------------------------------------------------------------------
+
+    // Array of color options for new categories
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D3', '#54C6EB', '#A4D8A4'];
     
+    // Track the state of our UI components
     let newCategory = '';
     let editingCategory: EditingCategory | null = null;
     let showCategoryModal = false;
     let showAddInput = false;
     
-    // Calculate incomplete tasks per category
+    // Create a derived store that calculates incomplete tasks per category
+    // This will automatically update when categories or tasks change
     const categoryMap = derived([categories, tasks], ([$categories, $tasks]) => {
         const map = new Map<string, number>();
         const categoryArray = $categories as Category[];
@@ -41,14 +76,17 @@
         return map;
     });
     
+    // Handle drag and drop consideration (when items are being dragged)
     function handleDndConsider(e: CustomEvent<{ items: Category[] }>) {
         categories.set(e.detail.items.map((item, index) => ({ ...item, index })));
     }
 
+    // Handle drag and drop finalization (when items are dropped)
     function handleDndFinalize(e: CustomEvent<{ items: Category[] }>) {
         categories.set(e.detail.items.map((item, index) => ({ ...item, index })));
     }
 
+    // Handle adding a new category
     function handleAddCategory() {
         if (!newCategory.trim()) {
             showError('Category name cannot be empty');
@@ -68,6 +106,7 @@
         showAddInput = false;
     }
     
+    // Handle updating an existing category
     function handleUpdateCategory(index: number) {
         if (!editingCategory) return;
         
@@ -90,6 +129,7 @@
         editingCategory = null;
     }
     
+    // Handle deleting a category
     function handleDeleteCategory(category: Category) {
         const taskArray = $tasks as Task[];
         if (taskArray.filter((t: Task) => t.category === category.name).length > 0) {
@@ -99,12 +139,15 @@
         deleteCategory(category.id);
     }
 
+    // Set the selected category
     function setSelectedCategory(category: Category) {
         selectedCategory.set(category.name);
     }
 </script>
 
+<!-- Main categories container -->
 <div class="categories">
+    <!-- Header section with title and add button -->
     <div class="header">
         <h2>Categories</h2>
         <button 
@@ -120,6 +163,7 @@
         </button>
     </div>
     
+    <!-- Add category input form -->
     {#if showAddInput}
         <div class="add-category" transition:slide>
             <input
@@ -138,6 +182,7 @@
         </div>
     {/if}
     
+    <!-- Category list container with drag and drop functionality -->
     <div 
         class="category-list" 
         role="tablist"
@@ -146,8 +191,10 @@
         on:finalize={handleDndFinalize}
     >
         {#each $categories as category (category.id)}
+            <!-- Individual category item with animation -->
             <div class="category-wrapper" animate:flip={{duration: 300}}>
                 {#if editingCategory?.index === $categories.indexOf(category)}
+                    <!-- Editing mode -->
                     <div class="edit-container" transition:fade|local>
                         <input
                             type="text"
@@ -165,6 +212,7 @@
                         </button>
                     </div>
                 {:else}
+                    <!-- Normal view -->
                     <div
                         class="category-item"
                         class:active={category.name === $selectedCategory}
@@ -200,25 +248,38 @@
                     </div>
                 {/if}
             </div>
-        {:else}
-            <div class="empty-state">
-                <p>No categories found</p>
-                <button class="primary-btn" on:click={() => showAddInput = true}>Add your first category</button>
-            </div>
         {/each}
     </div>
 </div>
 
+<!-- Modal for confirming category deletion -->
 {#if showCategoryModal}
     <div
         class="modal-overlay"
-        transition:fade
         role="dialog"
+        aria-modal="true"
+        aria-label="Confirm category deletion"
     >
-        <div class="modal">
-            <h3>Cannot Delete Category</h3>
-            <p>This category contains tasks. Please delete or move all tasks before deleting the category.</p>
-            <button class="primary-btn" on:click={() => showCategoryModal = false}>OK</button>
+        <div class="modal-content">
+            <h3>Warning</h3>
+            <p>This category has tasks. Are you sure you want to delete it?</p>
+            <div class="modal-actions">
+                <button
+                    class="secondary-btn"
+                    on:click={() => showCategoryModal = false}
+                >
+                    Cancel
+                </button>
+                <button
+                    class="danger-btn"
+                    on:click={() => {
+                        deleteCategory($categories[$categories.length - 1].id);
+                        showCategoryModal = false;
+                    }}
+                >
+                    Delete
+                </button>
+            </div>
         </div>
     </div>
 {/if}
@@ -228,106 +289,113 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
-        position: relative;
-        z-index: 2;
-        width: 300px;
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        padding: 1.5rem;
+        width: 100%;
     }
 
     .header {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        padding: 0.5rem;
+        border-bottom: 1px solid #e5e7eb;
     }
 
     h2 {
         margin: 0;
-        font-size: 1.5rem;
-        color: #333;
-        font-weight: 600;
+        font-size: 1.25rem;
+        color: #1f2937;
     }
 
     .new-category-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 2.5rem;
-        height: 2.5rem;
+        background: none;
         border: none;
-        background: #f8f9fa;
-        color: #228be6;
-        border-radius: 50%;
+        color: #3b82f6;
         cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
         transition: all 0.2s ease;
     }
 
     .new-category-btn:hover {
-        background: #e7f5ff;
-        transform: scale(1.05);
+        background: #f1f5f9;
     }
 
-    .new-category-btn:focus {
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(34, 139, 230, 0.2);
+    .add-category {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.5rem;
+    }
+
+    .add-category input {
+        flex: 1;
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+    }
+
+    .primary-btn {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+    }
+
+    .primary-btn:hover {
+        background: #2563eb;
     }
 
     .category-list {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
-        width: 100%;
+        gap: 0.25rem;
     }
 
     .category-wrapper {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem;
-        border-radius: 8px;
-        cursor: grab;
-        transition: all 0.2s ease;
-    }
-
-    .category-wrapper:hover {
-        background: #f5f5f5;
+        background: white;
+        border-radius: 0.375rem;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
     .category-item {
-        position: relative;
         display: flex;
+        justify-content: space-between;
         align-items: center;
         padding: 0.75rem 1rem;
-        margin-bottom: 0.5rem;
-        background: #f8f9fa;
-        border-radius: 0.5rem;
         cursor: pointer;
         transition: all 0.2s ease;
-        width: 100%;
-        min-height: 3rem;
-    }
-
-    .category-item:hover {
-        background: #e9ecef;
     }
 
     .category-item.active {
-        background: #4299e1;
-        color: white;
+        background: #f1f5f9;
+    }
+
+    .category-item:hover {
+        background: #f8fafc;
     }
 
     .category-main {
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        flex: 1;
     }
 
     .category-name {
-        flex: 1;
         font-weight: 500;
+        color: #1f2937;
+    }
+
+    .badge {
+        background: #3b82f6;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
     }
 
     .category-actions {
@@ -335,126 +403,110 @@
         gap: 0.5rem;
     }
 
-    .badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 1.25rem;
-        height: 1.25rem;
-        padding: 0 0.25rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: white;
-        background: #ff6b6b;
-        border-radius: 0.25rem;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    }
-
-    .category-item.active .badge {
-        background: white;
-        color: #4299e1;
-    }
-
     .icon-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 2rem;
-        height: 2rem;
-        padding: 0;
+        background: none;
         border: none;
-        background: transparent;
-        color: inherit;
-        opacity: 0.5;
+        color: #6b7280;
         cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
         transition: all 0.2s ease;
-        border-radius: 0.25rem;
-    }
-
-    .category-item:hover .icon-btn {
-        opacity: 0.8;
     }
 
     .icon-btn:hover {
-        opacity: 1;
-        background: rgba(0, 0, 0, 0.05);
+        color: #3b82f6;
     }
 
-    .category-item.active .icon-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
+    .icon-btn.edit {
+        color: #3b82f6;
     }
 
-    .add-category {
+    .icon-btn.delete {
+        color: #ef4444;
+    }
+
+    .edit-container {
         display: flex;
+        align-items: center;
         gap: 0.5rem;
-        margin-bottom: 0.5rem;
+        padding: 0.75rem 1rem;
     }
 
-    .primary-btn {
-        padding: 0.75rem 1.5rem;
-        background: #228be6;
+    .edit-container input {
+        flex: 1;
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+    }
+
+    .save-btn {
+        background: #3b82f6;
         color: white;
         border: none;
-        border-radius: 0.5rem;
-        font-weight: 500;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
         cursor: pointer;
         transition: all 0.2s ease;
     }
 
-    .primary-btn:hover {
-        background: #1c7ed6;
-        transform: translateY(-2px);
-    }
-
-    input {
-        padding: 0.75rem 1rem;
-        border: 1px solid #dee2e6;
-        border-radius: 0.5rem;
-        font-size: 1rem;
-        transition: all 0.15s ease;
-    }
-
-    input:focus {
-        outline: none;
-        border-color: #4dabf7;
-        box-shadow: 0 0 0 3px rgba(77, 171, 247, 0.2);
-    }
-
-    .empty-state {
-        padding: 2rem;
-        text-align: center;
-        color: #868e96;
-        background: #f8f9fa;
-        border: 2px dashed #dee2e6;
-        border-radius: 0.5rem;
+    .save-btn:hover {
+        background: #2563eb;
     }
 
     .modal-overlay {
         position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.5);
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
         display: flex;
-        align-items: center;
         justify-content: center;
-        backdrop-filter: blur(4px);
-        z-index: 100;
+        align-items: center;
+        z-index: 1000;
     }
 
-    .modal {
+    .modal-content {
         background: white;
         padding: 1.5rem;
-        border-radius: 0.75rem;
-        max-width: 24rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 0.5rem;
+        max-width: 300px;
+        width: 90%;
     }
 
-    .modal h3 {
-        margin: 0 0 1rem 0;
-        color: #333;
+    .modal-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        margin-top: 1rem;
     }
 
-    .modal p {
-        margin: 0 0 1.5rem 0;
-        color: #495057;
+    .secondary-btn {
+        background: none;
+        border: 1px solid #e5e7eb;
+        color: #1f2937;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .secondary-btn:hover {
+        background: #f1f5f9;
+    }
+
+    .danger-btn {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .danger-btn:hover {
+        background: #dc2626;
     }
 </style>
