@@ -1,0 +1,84 @@
+{
+    "tasks": [
+        {
+            "id": "1",
+            "title": "Review Q1 financial reports",
+            "completed": true,
+            "category": "Work",
+            "createdAt": "2025-03-01T09:30:00Z",
+            "dueDate": "2025-03-05T17:00:00Z"
+        },
+        {
+            "id": "2",
+            "title": "Schedule team meeting",
+            "completed": false,
+            "category": "Work",
+            "createdAt": "2025-03-15T14:20:00Z",
+            "dueDate": "2025-03-17T17:00:00Z"
+        },
+        {
+            "id": "3",
+            "title": "Update project documentation",
+            "completed": false,
+            "category": "Work",
+            "createdAt": "2025-03-18T11:45:00Z",
+            "dueDate": "2025-03-22T17:00:00Z"
+        },
+        {
+            "id": "4",
+            "title": "Prepare client presentation",
+            "completed": true,
+            "category": "Work",
+            "createdAt": "2025-03-10T16:15:00Z",
+            "dueDate": "2025-03-14T17:00:00Z"
+        },
+        {
+            "id": "5",
+            "title": "Code review for new features",
+            "completed": false,
+            "category": "Work",
+            "createdAt": "2025-03-20T13:30:00Z",
+            "dueDate": "2025-03-25T17:00:00Z"
+        },
+        {
+            "id": "6",
+            "title": "Weekly team sync",
+            "completed": true,
+            "category": "Work",
+            "createdAt": "2025-03-22T10:00:00Z",
+            "dueDate": "2025-03-22T12:00:00Z"
+        },
+        {
+            "id": "7",
+            "title": "Buy groceries",
+            "completed": false,
+            "category": "Shopping",
+            "createdAt": "2025-03-21T08:00:00Z",
+            "dueDate": "2025-03-21T20:00:00Z"
+        },
+        {
+            "id": "8",
+            "title": "Schedule dentist appointment",
+            "completed": false,
+            "category": "Health",
+            "createdAt": "2025-03-19T09:15:00Z",
+            "dueDate": "2025-03-26T17:00:00Z"
+        },
+        {
+            "id": "9",
+            "title": "Plan weekend trip",
+            "completed": false,
+            "category": "Personal",
+            "createdAt": "2025-03-17T20:30:00Z",
+            "dueDate": "2025-03-23T17:00:00Z"
+        },
+        {
+            "id": "10",
+            "title": "Order new headphones",
+            "completed": true,
+            "category": "Shopping",
+            "createdAt": "2025-03-16T15:45:00Z",
+            "dueDate": "2025-03-20T17:00:00Z"
+        }
+    ]
+}
