@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from "react"
 import { useTaskStore } from "@/store/useTaskStore"
 import { TaskCard } from "./TaskCard"
 import { AddTask } from "./AddTask"
@@ -7,8 +8,19 @@ import { AddTask } from "./AddTask"
 export function TaskList() {
     const tasks = useTaskStore(state => state.tasks)
     const selectedCategory = useTaskStore(state => state.selectedCategory)
+    const initializeStore = useTaskStore(state => state.initializeStore)
 
-    const filteredTasks = tasks.filter(task => task.category === selectedCategory)
+    useEffect(() => {
+        initializeStore()
+    }, [initializeStore])
+
+    const filteredTasks = tasks.filter(task => 
+        selectedCategory ? task.category === selectedCategory : true
+    )
+
+    if (!selectedCategory) {
+        return <div>Loading...</div>
+    }
 
     return (
         <div>

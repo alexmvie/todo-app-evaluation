@@ -15,13 +15,22 @@ interface TaskStore {
     updateTaskDueDate: (id: string, dueDate: string | undefined) => void
     reorderTasks: (fromId: string, toId: string) => void
     setSelectedCategory: (category: string) => void
+    initializeStore: () => void
 }
 
 export const useTaskStore = create<TaskStore>((set) => ({
-    tasks: sampleData.tasks,
-    categories: categoriesData.categories,
-    selectedCategory: categoriesData.categories[0],
+    tasks: [],
+    categories: [],
+    selectedCategory: '',
     
+    initializeStore: () => {
+        set({
+            tasks: sampleData.tasks,
+            categories: categoriesData.categories,
+            selectedCategory: categoriesData.categories[0]
+        })
+    },
+
     addTask: (task) => set((state) => ({
         tasks: [...state.tasks, {
             ...task,
