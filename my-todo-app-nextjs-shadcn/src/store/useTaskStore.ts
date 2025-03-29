@@ -16,6 +16,7 @@ interface TaskStore {
     reorderTasks: (fromId: string, toId: string) => void
     setSelectedCategory: (category: string) => void
     initializeStore: () => void
+    editTask: (id: string, updates: Partial<Task>) => void
 }
 
 export const useTaskStore = create<TaskStore>((set) => ({
@@ -84,5 +85,13 @@ export const useTaskStore = create<TaskStore>((set) => ({
         return { tasks }
     }),
 
-    setSelectedCategory: (category) => set({ selectedCategory: category })
+    setSelectedCategory: (category) => set({ selectedCategory: category }),
+
+    editTask: (id, updates) => {
+        set((state) => ({
+            tasks: state.tasks.map(task =>
+                task.id === id ? { ...task, ...updates } : task
+            )
+        }))
+    }
 }))
